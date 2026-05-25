@@ -18,6 +18,7 @@ from data_provider.manager import DataProviderManager
 from analysis_engine.metrics import calculate_performance_metrics, calculate_risk_metrics, calculate_comprehensive_score
 from analysis_engine.scorer import FundScoreResult
 from analysis_engine.report_generator import ReportGenerator
+from dca_calculator.calculator import calculate_dca_advice, format_dca_report
 from notification.sender import NotificationManager
 from storage.database import init_db
 from storage.repository import FundRepository
@@ -68,6 +69,8 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
 
     all_scores: list[FundScoreResult] = []
     all_reports: list[str] = []
+    all_dca: list = []
+    holding_map = config.get_holding_map()
 
     for code in fund_codes:
         click.echo(f"\n{'='*50}")
@@ -107,6 +110,22 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
             all_scores.append(score_result)
 
             click.echo(f"  📊 综合评分: {score}/100 | 评级: {score_result.rating_emoji} {rating}")
+
+            # 2.5 智能定投建议
+            dca_advice = None
+            if not dry_run and risk.max_drawdown is not None:
+                held = holding_map.get(code, 0)
+                remaining = config.fund_budget - held
+                if remaining > 0:
+                    dca_advice = calculate_dca_advice(
+                        fund_code=code,
+                        fund_name=fund_data.basic_info.fund_name,
+                        current_drawdown=risk.max_drawdown,
+                        remaining_budget=remaining,
+                        plan_months=config.dca_plan_months,
+                    )
+                    all_dca.append(dca_advice)
+                    click.echo(f"  💡 定投建议: {dca_advice.suggested_amount:.2f}元 ({dca_advice.trend_emoji} {dca_advice.multiplier}x)")
 
             # 3. 生成报告
             if not dry_run and report_gen:
@@ -153,6 +172,12 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
             summary = report_gen.generate_daily_summary(all_scores)
         else:
             summary = _format_simple_summary(all_scores)
+
+        # 追加定投建议
+        if all_dca:
+            summary += "\n\n### 💡 智能定投建议\n\n"
+            for d in all_dca:
+                summary += format_dca_report(d) + "\n"
 
         click.echo("\n" + summary)
 

@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     email_password: str = Field(default="")
     email_receivers: str = Field(default="")
 
+    # === 持仓与定投 ===
+    fund_holdings: str = Field(default="", description="持仓金额配置, 格式: 代码:金额,代码:金额")
+    fund_budget: float = Field(default=5000.0, description="单只基金最大投入预算(元)")
+    dca_plan_months: int = Field(default=12, description="定投计划月数")
+
     # === 分析参数 ===
     risk_free_rate: float = Field(default=0.025, description="无风险利率")
     nav_history_days: int = Field(default=365, description="净值历史天数")
@@ -52,3 +57,18 @@ class Settings(BaseSettings):
     def get_email_receiver_list(self) -> list[str]:
         """解析邮件接收者列表"""
         return [r.strip() for r in self.email_receivers.split(",") if r.strip()]
+
+    def get_holding_map(self) -> dict[str, float]:
+        """解析持仓金额映射 {基金代码: 持有金额}"""
+        result = {}
+        if not self.fund_holdings:
+            return result
+        for item in self.fund_holdings.split(","):
+            item = item.strip()
+            if ":" in item:
+                code, amount = item.split(":", 1)
+                try:
+                    result[code.strip()] = float(amount.strip())
+                except ValueError:
+                    pass
+        return result
