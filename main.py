@@ -126,11 +126,11 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
                     remaining_budget=remaining,
                     plan_months=config.dca_plan_months,
                 )
-                # 第一个月未持仓基金投入 = 基准×倍数
-                if not dry_run and held == 0:
-                    dca_advice.suggested_amount = round(
-                        config.fund_budget / config.dca_plan_months * dca_advice.multiplier, 2
-                    )
+                # 未持仓基金首笔买入 = 基于评分和回撤计算参考金额
+                if held == 0:
+                    score_factor = score / 80.0
+                    dd_factor = 1.0 + max(0, (risk.max_drawdown or 0)) / 100.0
+                    dca_advice.suggested_amount = round(200.0 * score_factor * dd_factor, 2)
                 all_dca.append(dca_advice)
                 click.echo(f"  💡 定投建议: {dca_advice.suggested_amount:.2f}元 ({dca_advice.trend_emoji} {dca_advice.multiplier}x)")
 
@@ -237,7 +237,7 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
                 d = unheld_dca_map.get(e.fund_code)
                 amt = f"**{d.suggested_amount:.0f}元**" if d else "-"
                 summary += f"| {e.fund_name[:15]}({e.fund_code}) | {e.score} | {dd} | {emoji} {e.action} | {amt} |\n"
-            summary += "\n> 首笔买入 = 5000÷12×倍数，买入后自动纳入持仓管理。选一只就好，不用全买。"
+            summary += "\n> 首笔 = 200×评分系数×回撤系数，参考当前估值。买后纳入持仓。"
 
         click.echo("\n" + summary)
 

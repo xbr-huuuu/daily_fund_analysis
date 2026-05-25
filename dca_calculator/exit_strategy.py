@@ -38,53 +38,7 @@ def evaluate_exit(
     5. 基金经理变动: 重新评估
     """
 
-    # 清仓条件
-    if score < 45:
-        if max_drawdown and max_drawdown > 30:
-            reason = "评分极低且回撤超30%，双重风险，建议清仓止损"
-        else:
-            reason = "评分持续低迷，基金基本面恶化，建议清仓"
-        return ExitAdvice(
-            fund_code=fund_code, fund_name=fund_name,
-            action="清仓", action_emoji="🚨",
-            score=score, rating=rating, drawdown=max_drawdown,
-            reason=reason,
-        )
-
-    # 减仓条件
-    if score < 55:
-        if max_drawdown and max_drawdown > 25:
-            reason = "评分偏低伴随大幅回撤，建议减仓50%控制风险"
-        else:
-            reason = "评分不足，建议减仓30%观望"
-        return ExitAdvice(
-            fund_code=fund_code, fund_name=fund_name,
-            action="减仓", action_emoji="⚠️",
-            score=score, rating=rating, drawdown=max_drawdown,
-            reason=reason,
-        )
-
-    # 评分下降警告
-    if prev_score and rating == "观望" and prev_score >= 75:
-        reason = f"评分从{prev_score}降至{score}，趋势转弱，注意观察"
-        return ExitAdvice(
-            fund_code=fund_code, fund_name=fund_name,
-            action="观察", action_emoji="👀",
-            score=score, rating=rating, drawdown=max_drawdown,
-            reason=reason,
-        )
-
-    # 经理变动警告
-    if manager_changed:
-        reason = "基金经理发生变动！建议观察1-2个月再决定"
-        return ExitAdvice(
-            fund_code=fund_code, fund_name=fund_name,
-            action="观察", action_emoji="👀",
-            score=score, rating=rating, drawdown=max_drawdown,
-            reason=reason,
-        )
-
-    # 未持仓基金 - 买入建议
+    # 未持仓基金 - 只给买入建议，不给清仓/减仓
     if not held:
         if rating == "推荐" and score >= 75:
             if max_drawdown and max_drawdown > 10:
