@@ -224,17 +224,20 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
 
         # 未持仓：观察列表
         unheld_exits = [e for e in all_exits if holding_map.get(e.fund_code, 0) == 0]
+        unheld_dca_map = {d.fund_code: d for d in all_dca if holding_map.get(d.fund_code, 0) == 0}
         if unheld_exits:
             summary += "\n\n---\n"
             summary += "\n\n### 👀 观察列表（未持仓）\n\n"
-            summary += "| 基金 | 评分 | 评级 | 回撤 | 建议 |\n"
-            summary += "|------|------|------|------|------|\n"
+            summary += "| 基金 | 评分 | 回撤 | 建议 | 首笔买入 |\n"
+            summary += "|------|------|------|------|----------|\n"
             for e in unheld_exits:
                 emoji_map = {"买入建仓": "💰", "可买入": "📊", "暂不买入": "⏳", "不建议买": "🚫"}
                 emoji = emoji_map.get(e.action, "?")
                 dd = f"{e.drawdown:.1f}%" if e.drawdown else "-"
-                summary += f"| {e.fund_name[:15]}({e.fund_code}) | {e.score} | {e.rating} | {dd} | {emoji} {e.action} |\n"
-            summary += "\n> 以上仅观察，不做定投。想买入时告诉我。"
+                d = unheld_dca_map.get(e.fund_code)
+                amt = f"**{d.suggested_amount:.0f}元**" if d else "-"
+                summary += f"| {e.fund_name[:15]}({e.fund_code}) | {e.score} | {dd} | {emoji} {e.action} | {amt} |\n"
+            summary += "\n> 首笔买入 = 5000÷12×倍数，买入后自动纳入持仓管理。选一只就好，不用全买。"
 
         click.echo("\n" + summary)
 
