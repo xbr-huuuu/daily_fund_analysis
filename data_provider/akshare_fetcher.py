@@ -330,7 +330,7 @@ class AkshareFetcher(BaseFundFetcher):
             return None
 
     def get_realtime_estimation(self, fund_code: str) -> Optional[FundEstimation]:
-        """获取实时估值"""
+        """获取实时估值（非核心功能，失败不影响整体）"""
         try:
             _throttle()
             df = ak.fund_value_estimation_em(symbol="开放式基金")
@@ -348,6 +348,5 @@ class AkshareFetcher(BaseFundFetcher):
                 estimation_time=datetime.now(),
             )
 
-        except Exception as e:
-            logger.warning(f"获取基金 {fund_code} 实时估值失败: {e}")
+        except Exception:
             return None
