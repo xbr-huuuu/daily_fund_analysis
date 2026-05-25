@@ -25,6 +25,8 @@ jobs:
       - name: Run analysis
         env:
           DFA_FUND_CODES: ${{ secrets.FUND_CODES }}
+          DFA_FUND_HOLDINGS: ${{ secrets.FUND_HOLDINGS }}
+          DFA_FUND_BUDGET: '5000'
           DFA_LLM_PRIMARY_MODEL: deepseek/deepseek-chat
           DFA_LLM_PRIMARY_API_KEY: ${{ secrets.LLM_PRIMARY_API_KEY }}
           DFA_LLM_PRIMARY_BASE_URL: ${{ secrets.LLM_PRIMARY_BASE_URL }}
