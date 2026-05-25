@@ -113,43 +113,49 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
 
             click.echo(f"  📊 综合评分: {score}/100 | 评级: {score_result.rating_emoji} {rating}")
 
-            # 2.5 智能定投建议
+            # 2.5 智能定投建议（持有和未持有都给建议）
             dca_advice = None
             if risk.max_drawdown is not None:
                 held = holding_map.get(code, 0)
+                # 未持有的用全部预算，已持有的用剩余额度
                 remaining = config.fund_budget - held
-                if remaining > 0:
-                    dca_advice = calculate_dca_advice(
-                        fund_code=code,
-                        fund_name=fund_data.basic_info.fund_name,
-                        current_drawdown=risk.max_drawdown,
-                        remaining_budget=remaining,
-                        plan_months=config.dca_plan_months,
-                    )
-                    all_dca.append(dca_advice)
-                    click.echo(f"  💡 定投建议: {dca_advice.suggested_amount:.2f}元 ({dca_advice.trend_emoji} {dca_advice.multiplier}x)")
-
-            # 2.6 卖出/持有评估 (仅已持仓基金)
-            exit_advice = None
-            if code in holding_map:
-                manager_changed = (
-                    fund_data.manager_info
-                    and fund_data.manager_info.name
-                    and repo.check_manager_change(code, fund_data.manager_info.name)
-                )
-                prev_report = repo.get_latest_report(code)
-                prev_score = prev_report.score if prev_report else None
-                exit_advice = evaluate_exit(
+                dca_advice = calculate_dca_advice(
                     fund_code=code,
                     fund_name=fund_data.basic_info.fund_name,
-                    score=score,
-                    rating=rating,
-                    max_drawdown=risk.max_drawdown,
-                    manager_changed=manager_changed,
-                    prev_score=prev_score,
+                    current_drawdown=risk.max_drawdown,
+                    remaining_budget=remaining,
+                    plan_months=config.dca_plan_months,
                 )
-                all_exits.append(exit_advice)
-                click.echo(f"  {exit_advice.action_emoji} 操作建议: {exit_advice.action} - {exit_advice.reason[:40]}...")
+                # 第一个月未持仓基金投入 = 基准×倍数
+                if not dry_run and held == 0:
+                    dca_advice.suggested_amount = round(
+                        config.fund_budget / config.dca_plan_months * dca_advice.multiplier, 2
+                    )
+                all_dca.append(dca_advice)
+                click.echo(f"  💡 定投建议: {dca_advice.suggested_amount:.2f}元 ({dca_advice.trend_emoji} {dca_advice.multiplier}x)")
+
+            # 2.6 卖出/持有/买入评估（所有基金）
+            exit_advice = None
+            held = holding_map.get(code, 0)
+            manager_changed = (
+                fund_data.manager_info
+                and fund_data.manager_info.name
+                and repo.check_manager_change(code, fund_data.manager_info.name)
+            )
+            prev_report = repo.get_latest_report(code)
+            prev_score = prev_report.score if prev_report else None
+            exit_advice = evaluate_exit(
+                fund_code=code,
+                fund_name=fund_data.basic_info.fund_name,
+                score=score,
+                rating=rating,
+                max_drawdown=risk.max_drawdown,
+                manager_changed=manager_changed,
+                prev_score=prev_score,
+                held=(held > 0),
+            )
+            all_exits.append(exit_advice)
+            click.echo(f"  {exit_advice.action_emoji} 操作建议: {exit_advice.action} - {exit_advice.reason[:40]}...")
 
             # 3. 生成报告
             if not dry_run and report_gen:

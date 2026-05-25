@@ -25,6 +25,7 @@ def evaluate_exit(
     max_drawdown: Optional[float],
     manager_changed: bool = False,
     prev_score: Optional[int] = None,
+    held: bool = False,
 ) -> ExitAdvice:
     """
     卖出/减仓评估
@@ -82,6 +83,42 @@ def evaluate_exit(
             score=score, rating=rating, drawdown=max_drawdown,
             reason=reason,
         )
+
+    # 未持仓基金 - 买入建议
+    if not held:
+        if rating == "推荐" and score >= 75:
+            if max_drawdown and max_drawdown > 10:
+                reason = f"评分{score}，当前回撤{max_drawdown:.1f}%，低估区间，建议开始建仓"
+                return ExitAdvice(
+                    fund_code=fund_code, fund_name=fund_name,
+                    action="买入建仓", action_emoji="💰",
+                    score=score, rating=rating, drawdown=max_drawdown,
+                    reason=reason,
+                )
+            else:
+                reason = f"评分{score}，表现优秀，可考虑建仓"
+                return ExitAdvice(
+                    fund_code=fund_code, fund_name=fund_name,
+                    action="可买入", action_emoji="📊",
+                    score=score, rating=rating, drawdown=max_drawdown,
+                    reason=reason,
+                )
+        elif rating == "观望":
+            reason = "评分中等，建议等待评分回升或回撤扩大再入场"
+            return ExitAdvice(
+                fund_code=fund_code, fund_name=fund_name,
+                action="暂不买入", action_emoji="⏳",
+                score=score, rating=rating, drawdown=max_drawdown,
+                reason=reason,
+            )
+        else:
+            reason = "评分偏低，不建议现在入场"
+            return ExitAdvice(
+                fund_code=fund_code, fund_name=fund_name,
+                action="不建议买", action_emoji="🚫",
+                score=score, rating=rating, drawdown=max_drawdown,
+                reason=reason,
+            )
 
     # 正常持有
     if rating == "推荐":
