@@ -1,0 +1,52 @@
+name: Daily Fund Analysis
+
+on:
+  schedule:
+    # 每个交易日 18:00 UTC+8 (10:00 UTC) 运行
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run analysis
+        env:
+          DFA_FUND_CODES: ${{ secrets.FUND_CODES }}
+          DFA_LLM_PRIMARY_MODEL: ${{ secrets.LLM_PRIMARY_MODEL || 'gpt-4o-mini' }}
+          DFA_LLM_PRIMARY_API_KEY: ${{ secrets.LLM_PRIMARY_API_KEY }}
+          DFA_LLM_PRIMARY_BASE_URL: ${{ secrets.LLM_PRIMARY_BASE_URL }}
+          DFA_LLM_FALLBACK_MODEL: ${{ secrets.LLM_FALLBACK_MODEL || 'deepseek-chat' }}
+          DFA_LLM_FALLBACK_API_KEY: ${{ secrets.LLM_FALLBACK_API_KEY }}
+          DFA_LLM_FALLBACK_BASE_URL: ${{ secrets.LLM_FALLBACK_BASE_URL }}
+          DFA_WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
+          DFA_FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          DFA_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DFA_TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DFA_EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+          DFA_EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT || '465' }}
+          DFA_EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          DFA_EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          DFA_EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+        run: python main.py run
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fund-reports-${{ github.run_number }}
+          path: data/
+          retention-days: 30
