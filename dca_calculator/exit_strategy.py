@@ -135,17 +135,9 @@ def evaluate_exit(
 
 
 def format_exit_report(advice: ExitAdvice) -> str:
-    """格式化卖出建议报告"""
+    """格式化操作建议"""
+    dd_str = f"{advice.drawdown:.1f}%" if advice.drawdown else "-"
     lines = [
-        f"### {advice.action_emoji} 操作建议: {advice.action}",
-        f"",
-        f"| 指标 | 数值 |",
-        f"|------|------|",
-        f"| 评分 | {advice.score}/100 |",
-        f"| 评级 | {advice.rating} |",
+        f"**{advice.action_emoji} {advice.fund_name}：{advice.action}** — {advice.reason}",
     ]
-    if advice.drawdown is not None:
-        lines.append(f"| 当前回撤 | {advice.drawdown:.2f}% |")
-    lines.append(f"")
-    lines.append(f"**判断:** {advice.reason}")
     return "\n".join(lines)
