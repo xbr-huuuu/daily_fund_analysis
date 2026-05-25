@@ -115,7 +115,7 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
 
             # 2.5 智能定投建议
             dca_advice = None
-            if not dry_run and risk.max_drawdown is not None:
+            if risk.max_drawdown is not None:
                 held = holding_map.get(code, 0)
                 remaining = config.fund_budget - held
                 if remaining > 0:
@@ -197,6 +197,10 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
         else:
             summary = _format_simple_summary(all_scores)
 
+        # 追加持仓状态
+        if holding_map and all_dca:
+            summary += _format_holding_status(holding_map, all_dca, config)
+
         # 追加定投建议
         if all_dca:
             summary += "\n\n### 💡 智能定投建议\n\n"
@@ -226,6 +230,35 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
 
     click.echo(f"\n{'='*50}")
     click.echo("🎉 分析完成!")
+
+
+def _format_holding_status(
+    holding_map: dict[str, float],
+    dca_list: list,
+    config: Settings,
+) -> str:
+    """格式化持仓状态表"""
+    lines = ["\n\n### 💰 持仓状态"]
+    lines.append("")
+    lines.append("| 基金 | 已投入 | 预算上限 | 剩余可投 | 本期建议 |")
+    lines.append("|------|--------|----------|----------|----------|")
+
+    for d in dca_list:
+        code = d.fund_code
+        held = holding_map.get(code, 0)
+        remaining = config.fund_budget - held
+        lines.append(
+            f"| {d.fund_name[:15]}({code}) "
+            f"| {held:.2f}元 "
+            f"| {config.fund_budget:.0f}元 "
+            f"| {remaining:.2f}元 "
+            f"| **{d.suggested_amount:.2f}元** |"
+        )
+        lines.append("")
+
+    lines.append("")
+    lines.append("> 策略：低估多投、高估少投。本期金额基于当前回撤自动计算。")
+    return "\n".join(lines)
 
 
 def _format_simple_summary(scores: list[FundScoreResult]) -> str:

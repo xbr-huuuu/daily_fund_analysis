@@ -93,8 +93,6 @@ def calculate_dca_advice(
 def format_dca_report(advice: DcaAdvice) -> str:
     """格式化定投建议报告"""
     lines = [
-        f"### 💡 智能定投建议",
-        f"",
         f"**{advice.trend_emoji} {advice.fund_name}**",
         f"",
         f"| 指标 | 数值 |",
