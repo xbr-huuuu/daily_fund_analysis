@@ -19,6 +19,7 @@ from analysis_engine.metrics import calculate_performance_metrics, calculate_ris
 from analysis_engine.scorer import FundScoreResult
 from analysis_engine.report_generator import ReportGenerator
 from dca_calculator.calculator import calculate_dca_advice, format_dca_report
+from dca_calculator.exit_strategy import evaluate_exit, format_exit_report
 from notification.sender import NotificationManager
 from storage.database import init_db
 from storage.repository import FundRepository
@@ -70,6 +71,7 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
     all_scores: list[FundScoreResult] = []
     all_reports: list[str] = []
     all_dca: list = []
+    all_exits: list = []
     holding_map = config.get_holding_map()
 
     for code in fund_codes:
@@ -127,6 +129,28 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
                     all_dca.append(dca_advice)
                     click.echo(f"  💡 定投建议: {dca_advice.suggested_amount:.2f}元 ({dca_advice.trend_emoji} {dca_advice.multiplier}x)")
 
+            # 2.6 卖出/持有评估 (仅已持仓基金)
+            exit_advice = None
+            if code in holding_map:
+                manager_changed = (
+                    fund_data.manager_info
+                    and fund_data.manager_info.name
+                    and repo.check_manager_change(code, fund_data.manager_info.name)
+                )
+                prev_report = repo.get_latest_report(code)
+                prev_score = prev_report.score if prev_report else None
+                exit_advice = evaluate_exit(
+                    fund_code=code,
+                    fund_name=fund_data.basic_info.fund_name,
+                    score=score,
+                    rating=rating,
+                    max_drawdown=risk.max_drawdown,
+                    manager_changed=manager_changed,
+                    prev_score=prev_score,
+                )
+                all_exits.append(exit_advice)
+                click.echo(f"  {exit_advice.action_emoji} 操作建议: {exit_advice.action} - {exit_advice.reason[:40]}...")
+
             # 3. 生成报告
             if not dry_run and report_gen:
                 click.echo("  🤖 生成 AI 报告...")
@@ -178,6 +202,12 @@ async def _run_analysis(fund_codes: list[str], config: Settings, dry_run: bool):
             summary += "\n\n### 💡 智能定投建议\n\n"
             for d in all_dca:
                 summary += format_dca_report(d) + "\n"
+
+        # 追加卖出建议
+        if all_exits:
+            summary += "\n\n### 📉 持仓操作建议\n\n"
+            for e in all_exits:
+                summary += format_exit_report(e) + "\n"
 
         click.echo("\n" + summary)
 
